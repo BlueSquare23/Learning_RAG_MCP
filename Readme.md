@@ -733,11 +733,254 @@ cd /home/lab-user/rag-project
 uv run python check_persistence.py
 ```
 
+### Chunking & The Precision Probem
 
+Now if the document is small enough, we could vectorize and store the whole
+thing in one chunk in the database. However, in reality most documents are full
+of a bunch of different sections with different information. If our model just
+returned the whole document everytime, it wouldn't be very useful.
 
+So instead what we do is split the documents up into chunks. 
 
+One way to do this is with fixed size chunking. Where we just break the
+document up every say 500 words and store those as unique chunks. But that has
+the downside of clipping sentences and ideas midway.
 
+For example, we could end up with "Dogs are allowed" and "on Fridays" in two
+different chunks, which would be bad if our bot though dogs were allowed
+always because it didn't see the chunk about only on fridays.
 
+One way to fix this is to add a 50 character overlap between the chunks. That
+has better results for the particular "Dogs allowed on fridays" case. But there
+are still other issues with fixed size chunking.
+
+There are other methods of chunking as well like sentence based chunking. Or
+paragraph based chunking. There's even semantic and agentic chunking, those are
+out of scope.
+
+So chunking is actually a somewhat complicated problem. If we have too big of a
+chunk, then end user get's overwhelmed with information. Whereas if we have too
+small of chunks, we could be missing vital context.
+
+> [!NOTE]
+> **PSUEDO CODE**
+
+Let's look at an example chunking function:
+
+```python
+def chunk_document(text, chunk_size=500, overlap=50):
+    """Split docs into overlapping chunks"""
+    chunks = []
+    start = 0
+
+    while start < len(text):
+        end = start + chunk_size
+        chunk = text[start:end]
+
+        # Try to break at sentence boundary
+        if end < len(text):
+            last_period = chunk.rfind('.')
+            if last_period > chunk_size * 0.7:
+                chunk = chunk[:last_period + 1]
+                end = start + last_period + 1
+
+        chunks.append(chunk.strip())
+        start = end - overlap  # Overlap for context
+
+    return chunks 
+```
+
+This function takes our document and splits it into overlapping chunks. It also
+tries to break on sentences and handle the end of the document properly.
+
+So then in our code from earlier, we'd include each chunk in our chroma db instead.
+
+```python
+chunks = chunk_document(large_policy_doc_text, chunk_size=500, overlap=50)
+
+# Add chunks to vector database
+for i, chunk in enumerate(chunks):
+    collection.add(
+        documents=[chunk],
+        ids=[f"chunk_{i}"]
+    )
+
+# Query our db
+...
+```
+
+Good guidelines for chunking are:
+
+* Size: 200-500 characters, 50-100 character overlap.
+* Boundary Rules: Split at sentences, Avoid mid-word breaks
+* Quality Checks: Test with real queries, Verify context preservation, Monitory search results
+
+In production we can use libraries like LangChain's `RecursiveCharacterTextSplitter` 
+and spaCy's `SpacyTextSplitter` to take care of chunking for us.
+
+### Lab 4 - Document Chunking
+
+Document Chunking for RAG
+
+Why Chunking Matters
+Large documents are hard to search effectively. Chunking breaks them into smaller, focused pieces that improve retrieval accuracy and make your RAG system smarter.
+
+What You'll Learn:
+
+* Setup: Verify environment & install packages
+* Task 1: Understand why chunking matters
+* Task 2: Basic character-based chunking
+* Task 3: Overlap chunking for context
+* Task 4: Sentence-aware chunking with spaCy
+* Task 5: Chunked vector search comparison
+* Task 6: Agentic chunking with AI
+
+Chunking Methods Covered:
+
+* Basic - Split by character count
+* Overlap - Preserve context at boundaries
+* Sentence-Aware - Break at natural language points
+* Agentic - AI-powered semantic splitting
+
+Duration: ~20-30 minutes
+
+Setup: Verify Environment
+
+Before starting, let's set up your environment.
+
+Navigate to the project and ~activate~ setup the virtual environment:
+
+```
+cd lab4/rag-project
+uv venv venv
+source venv/bin/activate
+uv pip install -r requirements.txt
+```
+
+Run the setup script (auto-installs all packages):
+
+```
+python verify_environment.py
+```
+
+The script will automatically:
+
+* ✅ Check virtual environment is active
+* ✅ Install all missing packages
+* ✅ Verify modules can be imported
+* ✅ Download spaCy model if needed
+* ✅ Check API configuration
+
+Task 1: Why Document Chunking Matters
+
+📄 View the script - chunking_problem_demo.py to see how it works
+
+What this demo shows:
+This script demonstrates the core problem with searching large documents in RAG systems. It creates a sample employee handbook and shows how searching for specific information (like 'internet speed requirements') returns the entire document instead of just the relevant section.
+
+What you'll see:
+
+* A large document stored as a single chunk
+* Search queries that should find specific sections
+* Results that return the entire document (the problem!)
+* Clear explanation of why this is problematic for RAG
+
+Run this command to see the chunking problem:
+
+```
+cd /home/lab-user/rag-project
+uv run python chunking_problem_demo.py
+```
+
+What is the main problem with searching large documents without chunking?
+
+Task 2: Basic Document Chunking
+
+📄 View the script - basic_chunking.py to see how it works
+
+What this demo shows:
+This script demonstrates basic document chunking using LangChain's RecursiveCharacterTextSplitter. It takes a sample document and breaks it into smaller, manageable chunks based on character count and separators.
+
+What you'll see:
+
+* Original document length and content preview
+* LangChain text splitter configuration
+* Document split into multiple chunks (6 chunks total)
+* Each chunk's length, content, and separator used
+* Benefits of basic chunking approach
+
+Run the basic chunking demo:
+
+```
+cd /home/lab-user/rag-project
+uv run python basic_chunking.py
+```
+
+Task 3: Chunking with Overlap
+
+📄 View the script - overlap_chunking.py to see how it works
+
+What this demo shows:
+This script demonstrates the importance of chunk overlap in RAG systems. It compares chunking with and without overlap, showing how overlap preserves context across chunk boundaries and prevents loss of important information.
+
+What you'll see:
+
+* Same document chunked without overlap (7 chunks)
+* Same document chunked with overlap (7 chunks)
+* Side-by-side comparison of chunk boundaries
+* Analysis of context preservation
+* Clear demonstration of why overlap matters
+
+Run the overlap chunking demo:
+
+```
+cd /home/lab-user/rag-project
+uv run python overlap_chunking.py
+```
+
+Task 4: Sentence-Aware Chunking
+
+📄 View the script - sentence_chunking.py to see how it works
+
+What this demo shows:
+This script demonstrates advanced chunking using spaCy for sentence-aware text splitting. It compares basic character-based chunking with intelligent sentence-boundary chunking, showing how breaking at natural language boundaries improves semantic coherence.
+
+What you'll see:
+
+* Basic character-based chunking (may break mid-sentence)
+* spaCy-powered sentence-aware chunking
+* Side-by-side comparison of chunk quality
+* Analysis of sentence boundary preservation
+* Benefits of natural language processing for chunking
+
+Run the sentence-aware chunking demo:
+
+```
+cd /home/lab-user/rag-project
+uv run python sentence_chunking.py
+```
+
+Task 5: Chunked Vector Search
+
+📄 View the script - chunked_search.py to see how it works
+
+What this demo shows:
+This script demonstrates the complete RAG search improvement with chunking. It compares search performance between a single large document and properly chunked documents, showing how chunking leads to more precise and relevant search results.
+
+What you'll see:
+
+* Same document stored as single chunk vs. multiple chunks
+* Multiple search queries tested on both approaches
+* Similarity scores and result quality comparison
+* Clear demonstration of chunking benefits
+* Performance summary showing improved precision
+
+Run the chunked vector search demo:
+
+```
+cd /home/lab-user/rag-project
+uv run python chunked_search.py
+```
 
 
 

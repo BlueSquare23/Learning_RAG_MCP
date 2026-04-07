@@ -1,0 +1,23 @@
+# RAG Document Chunking Lab Requirements
+# Core search libraries
+scikit-learn==1.3.2
+rank-bm25==0.2.2
+pandas==2.1.4
+numpy>=1.26.0,<2
+matplotlib==3.7.2
+
+# Embedding models
+sentence-transformers==2.7.0
+
+# Vector database
+chromadb==0.4.22
+
+# Chunking libraries
+langchain==0.1.0
+langchain-openai>=0.0.5
+langchain-core>=0.1.0
+spacy==3.7.2
+
+# VSCode/rootline environment
+mcp
+uv
