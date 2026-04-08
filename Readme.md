@@ -982,5 +982,189 @@ cd /home/lab-user/rag-project
 uv run python chunked_search.py
 ```
 
+## RAG Architecture
+
+Okay so we know the basics of RAG (Retrieval, Augmentation, Generation), let's
+zoom out and look at how they look in a real rag pipeline system.
+
+Now all of the document processing (Scraping/Exporting/Converting, Chunking,
+Creating Embeddings) needs to happen before the user ever makes a query.
+Because this takes time and effort.
+
+This system is called a RAG Pipeline.
+
+```
+Fetching Docs > Chunking > Embeddings > VectorDB
+```
+
+### Lab 5 - Complete Rag Pipeline
+
+🎯 Complete RAG Pipeline Lab
+
+Welcome to the final lab in our RAG crash course! In this lab, you'll see how all the components from previous labs work together to create a complete RAG system.
+
+What you'll learn:
+
+* How document chunking integrates with vector search
+* How query processing connects to retrieval
+* How context augmentation feeds into response generation
+* How the complete RAG pipeline works end-to-end
+
+This lab combines everything from Labs 01-04 into one working system!
+
+The capstone lab that brings it all together
+
+Task 1: Set Up Virtual Environment
+
+Navigate to the project:
+
+```
+cd /home/lab-user/rag-project
+```
+
+Activate virtual environment:
+
+```
+cd lab5/rag-project
+uv venv venv
+source venv/bin/activate
+uv pip install -r requirements.txt
+```
+
+Task 2: Document Loading & Chunking
+
+📄 View the script - complete_rag_demo.py to see how it works
+
+What this section shows:
+This section demonstrates how documents are loaded and chunked for better retrieval. It shows the same chunking approach from Lab 04, but now integrated into the complete RAG pipeline.
+
+What you'll see:
+
+* Sample policy documents loaded
+* LangChain text splitter configuration
+* Document chunking with specific size and overlap
+* Chunk metadata and organization
+
+Look at the script and answer: What is the chunk size used in the text splitter?
+
+Task 3: Vector Database Setup
+
+📄 View the script - complete_rag_demo.py to see how it works
+
+What this section shows:
+This section demonstrates how the vector database is set up to store the chunked documents. It shows ChromaDB initialization and collection creation with specific configuration.
+
+What you'll see:
+
+* ChromaDB client initialization
+* Collection creation with metadata
+* Document storage with embeddings
+* Vector database configuration
+
+Look at the script and answer: What is the name of the collection created in ChromaDB?
+
+Task 4: Query Processing
+
+📄 View the script - complete_rag_demo.py to see how it works
+
+What this section shows:
+This section demonstrates how user queries are processed and converted to embeddings for vector search. It shows the same embedding model approach from Lab 02.
+
+What you'll see:
+
+* Query preprocessing and cleaning
+* Embedding model loading
+* Vector conversion process
+* Embedding dimensions and properties
+
+Look at the script and answer: What embedding model is used for query processing?
+
+Task 5: Vector Search
+
+📄 View the script - complete_rag_demo.py to see how it works
+
+What this section shows:
+This section demonstrates how vector search finds relevant document chunks using semantic similarity. It shows the same vector search approach from Lab 03.
+
+What you'll see:
+
+* Vector similarity search execution
+* Result ranking and scoring
+* Top-k result selection
+* Similarity score calculation
+
+Look at the script and answer: How many top results are returned by default in the vector search?
+
+Task 6: Context Augmentation
+
+📄 View the script - complete_rag_demo.py to see how it works
+
+What this section shows:
+This section demonstrates how retrieved context is assembled into a structured prompt for the LLM. It shows how multiple sources are combined into coherent context.
+
+What you'll see:
+
+* Context assembly from search results
+* Prompt construction with policies
+* Information formatting and structure
+* Context length management
+
+Look at the entire script and answer: What similarity metric is used in the ChromaDB collection?
+
+Task 7: Response Generation
+
+📄 View the script - complete_rag_demo.py to see how it works
+
+What this section shows:
+This section demonstrates how the LLM generates responses using the augmented prompt. It shows the final step of the RAG pipeline.
+
+What you'll see:
+
+* LLM integration (simulated)
+* Response formatting and structure
+* Answer synthesis process
+* Output generation
+
+Look at the entire script and answer: What is the chunk overlap used in the text splitter?
+
+Task 8: Complete RAG Pipeline Results
+
+📄 View the script - complete_rag_demo.py to see how it works
+
+What this demo shows:
+This is the complete RAG pipeline in action! You'll see all the components working together from document loading to response generation.
+
+What you'll see:
+
+* Complete pipeline execution
+* Step-by-step processing
+* Multiple test queries
+* End-to-end RAG system
+
+Run the complete RAG pipeline demo:
+
+```
+cd /home/lab-user/rag-project
+uv run python complete_rag_demo.py
+```
+
+Based on the pipeline output, how many chunks are created from the 5 policy documents?
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
