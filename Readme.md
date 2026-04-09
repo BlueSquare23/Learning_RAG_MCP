@@ -1150,6 +1150,296 @@ uv run python complete_rag_demo.py
 
 Based on the pipeline output, how many chunks are created from the 5 policy documents?
 
+## RAG Production Concerns - Caching, Monitoring, Error Handling
+
+Rag systems are slow. Every query involves multiple expensive operations.
+
+To help resolve some of this slowness we can cache at multiple levels:
+
+* Embeddings
+* Search Results
+* Final Answers
+
+The simplest is to store complete question answer pairs. This way if someone
+asks the same question, we can return the exact same answer instantly.
+
+The embeddings cache stores the computed vectors for text. This is useful
+because generating embeddings is expensive.
+
+Vector search cache stores the results of DB queries. This is useful because
+similar queries will likely return similar chunks.
+
+Lastly, we can store the generated answers.
+
+We can use Redis to store our cached results.
+
+### Monitoring
+
+In order to ensure our RAG system is behaving appropriately we need to measure
+and monitor our rag system.
+
+The best general metrics are:
+
+* Response Time: How fast we answer questions?
+* Throughput: How many queries per second?
+* Error Rate: What percentage of requests fail?
+
+However, RAG systems also have their own metrics we want to track:
+
+* Retrieval Quality: Measure how relevant returned chunks are to users question
+* Embedding Performance: How long it takes to generate vector embeddings
+* Chunking Efficiency: How well we're breaking up documents
+
+We can then set alert thresholds to know when something is going wrong. So if
+there's a performance issue.
+
+### Example Production RAG System Architecture
+
+So can split our RAG system up into these layers.
+
+```
+┌──────────────────────────────┐
+│        Monitroing Stack      │  (Graphana, Prometheus, ELK)
+├──────────────────────────────┤
+│       Application Layer      │  (WebUI, API, etc)
+├──────────────────────────────┤
+│       Rag Pipeline Layer     │  (Query Service, Chunking, Embeddings, R A G)
+├──────────────────────────────┤
+│           Data Layer         │  (Vector DB, Redis, MySQL/Postgres)
+└──────────────────────────────┘
+```
+
+This clean separation of concerns allow us to build scalable production rag
+systems.
+
+## Model Context Protocol (MCP)
+
+### Table of Contents
+
+* Why MCP?
+* What is MCP?
+* MCP Architecture
+* JSON-RCP
+* Using an MCP Server
+* Building an MCP Server
+* MCP Inspector
+* Building an MCP Client
+
+Also labs!
+
+### Why do we need MCP?
+
+Well out of the box an LLM can't do anything except for return text. Own their
+own the models can't call an API or connect to a database, etc. If we want an
+AI to take some action we need to connect it to an AI agent.
+
+AI agents are long running with a memory of past requests and they act as a
+middle man between the main LLM and tool interactions.
+
+An agent is a lot like a traditional program except its control flow is not
+pre-determined by hardcoded logic. Instead it interacts with an LLM in order to
+determine what path it should take, what tool it should use, when it should
+exit, etc.
+
+A typical AI agent workflow looks like this:
+
+* User sends request to the agent.
+* The agent interacts with the LLM to extract the right details from the query.
+* The LLM responds back with the extracted details.
+* The agent asks the LLM what tools to interact with to get the job done.
+* The LLM responds with the right tool to use.
+* The agent uses those details and tools make a call to the external API with those details.
+* The agent asks the LLM what to do next.
+* The LLM says fetch the preferences from the database.
+* The agent fetches the details from the db and asks the LLM what flight to pick.
+* The LLM responds with the best flight based on preference and available flights.
+* The agent books the flight and returns the flight details to the user.
+
+### Tools & Standardization
+
+So what is a tool really and how does an LLM use it to interact with an
+airline. Well a tool is just a piece of hardcoded logic for interacting with
+something in the real world. So it could be an api call or a database call or a
+command runner or a file system tool, etc.
+
+MCP follows a client server architecture. Usually MCP clients live inside of
+coding agents like Claude, Cursor, Windsurf, etc.
+
+But not every tools needs an MCP server. For example if we ask an agent about a
+problem with the code in the current directory, it will look at the git history
+and at the backend changes, before identifying the issue. None of this requires
+an MCP server.
+
+However, if we wanted our AI to interact with a browser and read the console
+logs, we would need to put an mcp browser server in the middle.
+
+MCP Servers can be built by anyone who wants an AI to be able to interact with
+their application.
+
+### Lab 1 - Getting Started With Roo-Code
+
+🦘 Getting Started with Roo-Code AI Assistant
+
+In this introductory lab, you'll get familiar with our lab environment and learn how to use Roo-Code, an AI assistant integrated directly into VSCode.
+
+What you'll learn:
+
+    How to navigate the KodeKloud lab environment
+    Using Roo-Code AI assistant with pre-configured settings
+    Basic chat functionality with an AI assistant
+    Exploring AI capabilities for coding tasks
+
+
+
+Let's start by opening the Roo-Code AI assistant interface.
+
+    Look at the left sidebar of VSCode
+    Find and click on the kangaroo icon 🦘
+    This will open the Roo-Code interface panel
+
+💡 Tip: Roo-Code is an AI assistant that can help you with coding tasks, answer questions, and assist with various development activities right within VSCode.
+
+If Roo Code is not automatically configured with the required API keys, follow these steps:
+
+    Click on the Import Settings option located at the bottom of the Roo Code setup panel.
+    In the file picker, navigate to and select the file:
+
+    /home/lab-user/.roo-coder/profiles/default/settings.json
+
+    Once the file is selected, Roo Code will automatically load your saved profile and apply the settings.
+
+### What is MCP?
+
+MCP stands for Model Context Protocol.
+
+* Model - The LLM
+* Context - Providing access to other information
+* Protocol - Standards that define how ai should talk to external services
+
+MCP dictates that you have to use the JSON-RPC spec which is stateless.
+
+Servers may offer these features to clients:
+
+* Resources: Context and data, for the user of the AI model to use
+* Prompts: Templated messages and workflows for users
+* Tools: Functions for the AI model to execute
+
+Clients may offer the following features to servers:
+
+* Sampling: Server-initiated agentic behaviors and recursive LLM interactions
+* Roots: Server-initiated inquires into uri or filesystem boundaries to operate in
+* Elicitation: Server-initiated requests for additional information from users
+
+### MCP Architecture
+
+Lets think about MCP's from the perspective of someone building one from
+scratch. The goal is to get our AI to talk to a third party service. We'll we'd
+need to know what APIs / endpoints that service offers and we'd need to read
+the API documentation to understand how to use those endpoints.
+
+In the AI world, we define all of this inside of **Tools**. The server must
+list all of its capabilities as a list of tools defined in a specific format.
+Each tool should have a description of what it does and how to use it, as well
+as an input and output schema.
+
+Next if we're building an MCP from scratch we may need certain data from
+various places. For example, our user may have a preference to only book
+flights on providers with a refund policy. These pieces of information are
+known as **Resources**.
+
+The MCP specification has clear rules on how to define resources. Resources
+should have a URI that points to the resource. They should have a name, title,
+and description that defines what this resource does.
+
+The URI could be `HTTP://`, `FILE://`, `GIT://`, etc.
+
+Lastly, we have **Prompts**. Prompts are templated system prompt information
+that a server can provide with more information about the scope and
+restrictions on using for how to interact with the MCP server.
+
+### JSON-RPC
+
+The MCP server and client communicate with each other using JSON-RPC (2.0).
+
+But what is JSON-RPC?
+
+Well the JSON stands for JSON, which we already know. And the RPC, stands for
+Remote Procedure Call. Together they define how to messages and call methods
+remotely.
+
+So say we have a server that exposes a method like the following:
+
+```python
+def add(a: float, b: float):
+    """Add two numbers"""
+    return Success(a + b)
+```
+
+The client should be able to invoke that method remotely and pass parameters to
+it.
+
+```python
+rpc_request = request("add", {3,2})
+```
+
+Under the hood this would send a request and trigger a response like the
+following:
+
+Request:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "add",
+  "params": {
+    "a": 10,
+    "b": 5
+  },
+  "id": "a3f2c1b4"
+}
+```
+
+Response:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "result": 15,
+  "error": {}, //if error
+  "id": "a3f2c1b4"
+}
+```
+
+Note that JSON-RPC is a stateless and protocol independent. Meaning there's no
+connection kept alive between client and server and that we can use any
+protocol (HTTP, STDIO, AMQP, etc.) to transmit our messages.
+
+
+### How to Use an MCP Server
+
+Okay before we can really build an MCP server we need to learn how to use one.
+
+Most programmers are familiar with making requests to API's by hand. But with
+an MCP, that part of it is already taken care of for you. The MCP client
+takes care of the connection logic and request logic. So instead all you write
+is code that lists the mcp's available tools and to call those tools.
+
+When you start a tool like calude code, it launches an mcp server in stdio mode
+on the local box. You can then specify what mcp(s) to connect to in your
+`mcp.json` file.
+
+
+### Building an MCP Server
+
+There's a bunch of different SDK's for building MCP servers.
+
+https://modelcontextprotocol.io/docs/sdk
+
+Python reference docs:
+
+https://py.sdk.modelcontextprotocol.io/api/
+
+
 
 
 
